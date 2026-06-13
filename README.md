@@ -6,14 +6,16 @@
 
 ---
 
-## What's new in v4 ("Flow")
+## What's new in v5 ("Studio")
 
-* **Command Palette** — press <kbd>Ctrl</kbd>+<kbd>K</kbd> to fuzzy-search and run any command (create, modes, modifiers, deformers, booleans, materials, views, render toggles, export). Keyboard-driven, with recent-command memory. This is the fastest way to drive the whole editor.
-* **Procedural deformers** — **Twist**, **Bend**, and **Taper** applied around the object's local bounding box on a chosen axis. They operate on welded topology so the mesh stays watertight, and refit the BVH afterward.
-* **Proportional (soft) vertex editing** — toggle it (<kbd>O</kbd> in vertex mode) and dragging a vertex pulls its neighbours along a smooth falloff, sculpting clean domes and ridges. Vertex edits now move the whole welded vertex group, so the mesh no longer tears.
-* **Console access** — the runtime is exposed as `window.WebMaya` (`WebMaya.App.scene`, `WebMaya.objects()`, etc.) for power users and scripting.
+* **Viewport shading modes** — flip the whole viewport between **Solid**, **Wireframe**, **Matcap**, **Normals**, and **X-ray** from the Render panel or with the <kbd>\\</kbd> key (or the command palette). Implemented with a scene-wide override material, so your real per-object PBR materials are never touched — switch back to Solid and everything is exactly as you left it.
+* **Sculpt masking** — pick the **Mask** brush and paint protected zones (shown as red points); masked areas resist *every* brush, including Grab and symmetry. **Invert** and **Clear** are one click away. The mask is stored as a geometry attribute, so it survives undo/redo and project save/load automatically.
+* **Playblast & turntable** — **⏺ Playblast** records the timeline straight to a `.webm` video via the browser's `MediaRecorder` (paced to your scene FPS). Toggle **Turntable** for a continuous camera orbit — perfect on its own for product spins, or combined with playblast for a hands-free 360° render.
+* **Symmetrize** — bakes the chosen half across the deformer axis, mirrors it, and welds the seam into one watertight mesh (distinct from Mirror X, which spawns a separate object). Ideal for committing a symmetric base before sculpting.
+* **Gizmo space toggle** — switch the transform gizmo between **World** and **Local** orientation from the Transform panel (safely ignored mid-drag).
+* **Reliability pass** — fixed a sculpt lock-up on focus loss, several GPU-memory leaks (textures, materials and BVH trees on delete / reload / texture-swap), stale keyframe-easing bleeding between objects, a bend-deformer blow-up at tiny angles, and made grid/axes visibility and wire overlays persist through save and undo.
 
-Earlier releases already added BVH-accelerated sculpting (8 brushes + falloff curves + X-symmetry), CSG booleans (union / subtract / intersect), Loop subdivision, noise/array/shell modifiers, HDRI + bloom + shadows post-processing, OBJ/STL export, GLTF animation-clip export, and IndexedDB autosave.
+Earlier releases already added a **command palette** (<kbd>Ctrl</kbd>+<kbd>K</kbd>), **procedural deformers** (twist / bend / taper), **proportional soft-selection** vertex editing, BVH-accelerated sculpting (8 brushes + falloff curves + X-symmetry), CSG booleans (union / subtract / intersect), Loop subdivision, noise/array/shell modifiers, HDRI + bloom + shadows post-processing, OBJ/STL export, GLTF animation-clip export, IndexedDB autosave, and a `window.WebMaya` console runtime for scripting.
 
 ---
 
@@ -29,6 +31,10 @@ Earlier releases already added BVH-accelerated sculpting (8 brushes + falloff cu
 * Object framing
 * Screenshot export
 * Background color control
+* Viewport shading modes: solid, wireframe, matcap, normals, x-ray
+* World / local transform gizmo space
+* Turntable auto-orbit
+* Playblast viewport recording to WebM video
 
 ### Object creation
 
@@ -92,6 +98,7 @@ Sculpt mode lets you paint directly on selected meshes with multiple brush types
 * Adjustable brush strength
 * Hold **Shift** to temporarily smooth
 * Hold **Alt** to invert the brush
+* **Masking** — paint protected zones with the Mask brush (Alt erases); every brush, including Grab and symmetry, respects the mask. Invert and Clear supported, and the mask is saved with the project.
 
 ### Materials
 
@@ -115,9 +122,10 @@ Included modifier-style tools:
 
 * Mirror X
 * Radial mirror
+* Symmetrize (bake a watertight mirrored half across the deformer axis)
 * Smooth normals
 * Flat normals
-* Wire overlay
+* Wire overlay (toggle; persists with the project)
 * Triangulation status helper
 
 ### Animation
@@ -206,6 +214,7 @@ To make the app fully offline-capable, download Three.js and update the import m
 | Action                       | Shortcut                     |
 | ---------------------------- | ---------------------------- |
 | Command palette              | Ctrl + K                     |
+| Cycle viewport shading       | \                            |
 | Undo                         | Ctrl + Z                     |
 | Redo                         | Ctrl + Y or Ctrl + Shift + Z |
 | Duplicate                    | Ctrl + D                     |
@@ -384,6 +393,7 @@ Animation data stored in `userData.anim` is preserved as custom user data, but i
 * [x] Boolean operations (CSG)
 * [x] Procedural deformers (twist / bend / taper)
 * [x] Proportional / soft-selection editing
+* [x] Symmetrize (watertight mirror bake)
 * [ ] Edge selection mode
 * [ ] Multi-face and multi-vertex selection
 * [ ] True polygon topology layer
@@ -397,7 +407,7 @@ Animation data stored in `userData.anim` is preserved as custom user data, but i
 * [x] Brush falloff curves
 * [x] Symmetry sculpting (X)
 * [x] Clay / pinch / crease / grab brushes
-* [ ] Masking
+* [x] Masking
 * [ ] Dynamic remeshing
 * [ ] GPU-accelerated sculpt deformation
 
@@ -417,12 +427,16 @@ Animation data stored in `userData.anim` is preserved as custom user data, but i
 * [x] HDRI support
 * [x] Post-processing effects (bloom)
 * [x] Shadow controls
+* [x] Viewport shading modes (solid / wireframe / matcap / normals / x-ray)
+* [x] Turntable auto-orbit
+* [x] Playblast viewport recording (WebM)
 * [ ] Material library
 * [ ] Node-based material editor
 
 ### Productivity
 
 * [x] Command palette (Ctrl+K)
+* [x] World / local transform gizmo space
 * [ ] Customisable keybindings
 * [ ] Multi-viewport / quad view
 
