@@ -11,6 +11,8 @@
 * **Viewport shading modes** — flip the whole viewport between **Solid**, **Wireframe**, **Matcap**, **Normals**, and **X-ray** from the Render panel or with the <kbd>\\</kbd> key (or the command palette). Implemented with a scene-wide override material, so your real per-object PBR materials are never touched — switch back to Solid and everything is exactly as you left it.
 * **Sculpt masking** — pick the **Mask** brush and paint protected zones (shown as red points); masked areas resist *every* brush, including Grab and symmetry. **Invert** and **Clear** are one click away. The mask is stored as a geometry attribute, so it survives undo/redo and project save/load automatically.
 * **Playblast & turntable** — **⏺ Playblast** records the timeline straight to a `.webm` video via the browser's `MediaRecorder` (paced to your scene FPS). Toggle **Turntable** for a continuous camera orbit — perfect on its own for product spins, or combined with playblast for a hands-free 360° render.
+* **Camera animation** — keyframe the viewport camera (position, look-at target and FOV) on a dedicated gold timeline track with **🎥 Cam**. Scrubbing and playback fly the camera between keys, so playblasts capture real cinematic moves. Right-click a camera key to delete it.
+* **Brush hardness** — a Hardness slider tightens the sculpt brush tip from broad-and-soft to sharp-and-focused by reshaping the falloff curve in real time.
 * **Symmetrize** — bakes the chosen half across the deformer axis, mirrors it, and welds the seam into one watertight mesh (distinct from Mirror X, which spawns a separate object). Ideal for committing a symmetric base before sculpting.
 * **Gizmo space toggle** — switch the transform gizmo between **World** and **Local** orientation from the Transform panel (safely ignored mid-drag).
 * **Reliability pass** — fixed a sculpt lock-up on focus loss, several GPU-memory leaks (textures, materials and BVH trees on delete / reload / texture-swap), stale keyframe-easing bleeding between objects, a bend-deformer blow-up at tiny angles, and made grid/axes visibility and wire overlays persist through save and undo.
@@ -96,6 +98,7 @@ Sculpt mode lets you paint directly on selected meshes with multiple brush types
 * Invert brush direction
 * Adjustable brush size
 * Adjustable brush strength
+* Adjustable brush hardness (falloff sharpness)
 * Hold **Shift** to temporarily smooth
 * Hold **Alt** to invert the brush
 * **Masking** — paint protected zones with the Mask brush (Alt erases); every brush, including Grab and symmetry, respects the mask. Invert and Clear supported, and the mask is saved with the project.
@@ -139,6 +142,8 @@ WebMaya Advanced Studio includes a lightweight keyframe timeline:
 * Adjustable FPS
 * Interpolated position, rotation, and scale
 * Clear keys for selected object
+* Camera keyframes (position, look-at target, FOV) on a dedicated track
+* Playblast recording to WebM and turntable auto-orbit
 
 ### Import, export, and project files
 
@@ -416,10 +421,10 @@ Animation data stored in `userData.anim` is preserved as custom user data, but i
 * [x] Standard GLTF animation export
 * [x] Easing curves
 * [x] Draggable keyframes on the timeline
+* [x] Camera animation (position / target / FOV keyframes)
 * [ ] Dope sheet
 * [ ] Graph editor
 * [ ] Object constraints
-* [ ] Camera animation
 
 ### Materials and rendering
 

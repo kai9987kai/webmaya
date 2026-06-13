@@ -57,6 +57,8 @@
     .keyframe { position:absolute; top:56px; width:9px; height:9px; margin-left:-5px; background:#b8b8b8; transform:rotate(45deg); border:1px solid #111; cursor:grab; z-index:6; }
     .keyframe:hover { background:var(--hot); }
     .keyframe.selected { background:var(--hot); box-shadow:0 0 0 2px rgba(255,153,0,.35); }
+    .keyframe.cam { top:40px; background:#ffcf3a; cursor:default; }
+    .keyframe.cam:hover { background:#fff; }
     .out-row { display:flex; align-items:center; gap:6px; padding:5px; border-radius:4px; cursor:pointer; font-size:11px; }
     .out-row:hover { background:#2b2b2b; }
     .out-row.selected { background:#343434; color:white; }
@@ -196,6 +198,7 @@
         </div>
         <div class="prop-row"><span class="prop-label">Size</span><input type="range" min="0.1" max="3" step="0.05" id="sculpt-size" value="0.65" /></div>
         <div class="prop-row"><span class="prop-label">Power</span><input type="range" min="0.005" max="0.25" step="0.005" id="sculpt-power" value="0.045" /></div>
+        <div class="prop-row"><span class="prop-label">Hardness</span><input type="range" min="0" max="1" step="0.05" id="sculpt-hardness" value="0.35" title="Higher = tighter, sharper brush tip" /></div>
         <div class="prop-row"><span class="prop-label">Symmetry X</span><input type="checkbox" id="sculpt-sym" /></div>
         <div class="prop-row"><span class="prop-label">Invert</span><input type="checkbox" id="brush-invert" /></div>
         <div class="prop-row"><span class="prop-label">Mask</span>
@@ -280,6 +283,8 @@
       <button class="btn" id="play-btn" onclick="Anim.toggle()">▶</button>
       <button class="btn" onclick="Anim.recordKey()">◆ Key</button>
       <button class="btn" onclick="Anim.clearKeys()">Clear Keys</button>
+      <button class="btn" onclick="Anim.recordCamKey()" title="Keyframe the camera (position, target, FOV)">🎥 Cam</button>
+      <button class="btn" onclick="Anim.clearCamKeys()" title="Clear all camera keyframes">Clear Cam</button>
       <input type="number" class="prop-input mini" id="frame-val" value="0" min="0" max="100" onchange="Anim.goto(this.value)" />
       <span>/ <span id="max-frame-label">100</span></span>
       <span>FPS</span><input type="number" class="prop-input mini" id="fps-val" value="24" min="1" max="60" />
@@ -552,6 +557,7 @@ const History = {
         shadows:$('shadow-toggle').checked,
         grid:$('grid-toggle').checked,
         axes:$('axes-toggle').checked,
+        camTrack:Anim.camTrack,
         maxFrame:Anim.maxFrame,
         fps:parseFloat($('fps-val').value) || 24
       }
@@ -929,7 +935,9 @@ const Editor = {
     const data = Array.isArray(parsed) ? { objects:parsed } : parsed;
     State.suppressHistory = true;
     try {
-      App.transform.detach(); Helpers.clearEditHelpers(); Helpers.hideMask(); this.select(null);
+      App.transform.detach(); Helpers.clearEditHelpers(); Helpers.hideMask();
+      Anim.camTrack = {};   // cleared up front; applySettings repopulates from settings.camTrack if present
+      this.select(null);
       App.objects.forEach(o => {
         App.scene.remove(o);
         o.geometry?.disposeBoundsTree?.(); o.geometry?.dispose?.();
@@ -985,6 +993,7 @@ const Editor = {
     if (s.axes !== undefined) { $('axes-toggle').checked = s.axes; App.axes.visible = s.axes; }
     if (s.fps) $('fps-val').value = s.fps;
     if (s.maxFrame) Anim.setRange(s.maxFrame);
+    Anim.camTrack = s.camTrack || {}; Anim.renderKeys();
     Env.apply(); Env.updateExposure(); Env.updateBloom(); Env.updateShadows();
   },
 
@@ -1120,6 +1129,7 @@ const Editor = {
       if (o.material) { o.material.map?.dispose?.(); o.material.dispose?.(); }
     });
     App.objects=[]; this.select(null);
+    Anim.camTrack = {}; Anim.renderKeys();
     localStorage.removeItem('webmaya_scene_v2'); localStorage.removeItem('webmaya_scene');
     IDB.del('scene');
     History.push('new scene'); this.updateOutliner(); this.updateStats();
@@ -1140,8 +1150,12 @@ const Editor = {
     if (!State.selection) return;
     const o = State.selection;
     App.scene.remove(o); App.objects = App.objects.filter(x => x !== o);
-    o.geometry?.disposeBoundsTree?.(); o.geometry?.dispose?.();
-    if (o.material) { o.material.map?.dispose?.(); o.material.dispose?.(); }
+    // Dispose only resources no surviving object shares (multi-mesh GLTF imports can share geometry/material).
+    if (o.geometry && !App.objects.some(x => x.geometry === o.geometry)) { o.geometry.disposeBoundsTree?.(); o.geometry.dispose(); }
+    if (o.material && !App.objects.some(x => x.material === o.material)) {
+      if (o.material.map && !App.objects.some(x => x.material?.map === o.material.map)) o.material.map.dispose();
+      o.material.dispose();
+    }
     this.select(null); History.push('delete'); this.updateStats();
   },
 
@@ -1590,7 +1604,7 @@ const Sculpt = {
       const gverts = topo.groups[g];
       rep.fromBufferAttribute(pos, gverts[0]);
       const p = clamp(1 - dist/opts.rLocal, 0, 1);
-      let w = opts.power * FALLOFF[opts.falloff](p) * (opts.invert ? -1 : 1);
+      let w = opts.power * Math.pow(FALLOFF[opts.falloff](p), opts.hardExp || 1) * (opts.invert ? -1 : 1);
       if (maskAttr) w *= (1 - maskAttr.getX(gverts[0]));   // masked groups resist the brush
       out.copy(rep);
       switch (opts.mode) {
@@ -1686,10 +1700,11 @@ const Sculpt = {
     const invert = $('brush-invert').checked || e.altKey;
     const mode = e.shiftKey ? 'smooth' : $('brush-mode').value;
     const falloff = $('brush-falloff').value;
+    const hardExp = 1 + (parseFloat($('sculpt-hardness').value) || 0) * 3; // higher = tighter tip
     const rLocal = this.localRadius(mesh, radius);
     const localCenter = mesh.worldToLocal(hit.point.clone());
     const dirLocal = hit.face ? hit.face.normal.clone() : null;
-    const opts = { mode, power, invert, falloff, rLocal };
+    const opts = { mode, power, invert, falloff, rLocal, hardExp };
     const apply = (c, d) => mode === 'mask' ? this.paintMask(mesh, c, opts) : this.applyAt(mesh, c, d, opts);
     apply(localCenter, dirLocal);
     if ($('sculpt-sym').checked && Math.abs(localCenter.x) > 1e-5) {
@@ -1712,6 +1727,7 @@ const Sculpt = {
     const localCenter = mesh.worldToLocal(hit.point.clone());
     const topo = Topo.get(mesh.geometry);
     const falloff = $('brush-falloff').value;
+    const hardExp = 1 + (parseFloat($('sculpt-hardness').value) || 0) * 3;
     const pos = mesh.geometry.attributes.position;
     const maskAttr = mesh.geometry.attributes.aMask;
     const capture = (center) => {
@@ -1719,7 +1735,7 @@ const Sculpt = {
       const entries = [];
       groupsHit.forEach((dist, g) => {
         const p = clamp(1 - dist/rLocal, 0, 1);
-        let w = FALLOFF[falloff](p);
+        let w = Math.pow(FALLOFF[falloff](p), hardExp);
         if (maskAttr) w *= (1 - maskAttr.getX(topo.groups[g][0]));
         entries.push({ g, w, orig:new THREE.Vector3().fromBufferAttribute(pos, topo.groups[g][0]) });
       });
@@ -2186,7 +2202,12 @@ const Tools = {
     }
     if (!kept.length) return status('Nothing on that side of the axis to keep.');
     const arr = [];
-    const push = (a, b, c) => arr.push(a.x,a.y,a.z, b.x,b.y,b.z, c.x,c.y,c.z);
+    const e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), cr = new THREE.Vector3();
+    const push = (a, b, c) => {
+      cr.crossVectors(e1.subVectors(b, a), e2.subVectors(c, a));
+      if (cr.lengthSq() < 1e-12) return;              // drop degenerate/zero-area triangles (e.g. seam-collapsed)
+      arr.push(a.x,a.y,a.z, b.x,b.y,b.z, c.x,c.y,c.z);
+    };
     kept.forEach(([a,b,c]) => push(a, b, c));
     kept.forEach(([a,b,c]) => {                       // mirrored half, winding reversed to keep normals out
       const m = v => { const w = v.clone(); w.setComponent(ai, -w.getComponent(ai)); return w; };
@@ -2225,15 +2246,14 @@ const Tools = {
 };
 
 const Anim = {
-  frame:0, maxFrame:100, playing:false, accum:0, selectedKeyFrame:null, defaultEase:'linear',
+  frame:0, maxFrame:100, playing:false, accum:0, selectedKeyFrame:null, defaultEase:'linear', camTrack:{},
   setRange(n){ this.maxFrame=n; $('max-frame-label').textContent=n; $('frame-val').max=n; this.renderTicks(); this.goto(clamp(this.frame,0,n)); },
   renderTicks(){ const ticks=$('ticks'); ticks.innerHTML=''; for(let f=0; f<=this.maxFrame; f+=Math.max(10,this.maxFrame/10)){ const line=document.createElement('div'); line.className='frame-line'; line.style.left=(f/this.maxFrame*100)+'%'; const lab=document.createElement('div'); lab.className='frame-label'; lab.style.left=line.style.left; lab.textContent=Math.round(f); ticks.append(line,lab); } },
 
   renderKeys(){
     const con=$('key-container'); con.innerHTML='';
     const track = State.selection?.userData.anim;
-    if(!track) return;
-    Object.keys(track).forEach(f=>{
+    if (track) Object.keys(track).forEach(f=>{
       const frame = Number(f);
       const k=document.createElement('div');
       k.className='keyframe' + (this.selectedKeyFrame === frame ? ' selected' : '');
@@ -2241,6 +2261,15 @@ const Anim = {
       k.title='Frame '+f+' · '+(track[f].ease || 'linear');
       k.addEventListener('mousedown', ev => { ev.stopPropagation(); if (ev.button !== 0) return; this.dragKey(ev, frame); });
       k.addEventListener('contextmenu', ev => { ev.preventDefault(); ev.stopPropagation(); this.deleteKey(frame); });
+      con.appendChild(k);
+    });
+    // Camera keys (shown regardless of selection, gold, right-click to delete)
+    Object.keys(this.camTrack).forEach(f=>{
+      const frame = Number(f);
+      const k=document.createElement('div'); k.className='keyframe cam';
+      k.style.left=(frame/this.maxFrame*100)+'%';
+      k.title='Camera · frame '+f+' (right-click to delete)';
+      k.addEventListener('contextmenu', ev => { ev.preventDefault(); ev.stopPropagation(); delete this.camTrack[frame]; this.renderKeys(); History.push('delete cam key'); status('Camera key '+frame+' deleted.'); });
       con.appendChild(k);
     });
   },
@@ -2301,7 +2330,27 @@ const Anim = {
     this.renderKeys(); History.push('record key'); status('Key recorded at frame '+this.frame+'.');
   },
   clearKeys(){ if(State.selection?.userData.anim){ State.selection.userData.anim={}; this.selectedKeyFrame=null; this.renderKeys(); History.push('clear keys'); } },
-  goto(f){ this.frame=clamp(parseInt(f)||0,0,this.maxFrame); $('playhead').style.left=(this.frame/this.maxFrame*100)+'%'; $('frame-val').value=this.frame; App.objects.forEach(o=>this.evaluate(o,this.frame)); Editor.syncUI(); Helpers.updateSelectionBox(); },
+
+  // ---- Camera animation: position + orbit target + FOV keyed on a dedicated gold track ----
+  recordCamKey(){
+    this.camTrack[this.frame] = { p:App.camera.position.toArray(), t:App.orbit.target.toArray(), fov:App.camera.fov, ease:this.defaultEase };
+    this.renderKeys(); History.push('camera key'); status('Camera key recorded at frame '+this.frame+'.');
+  },
+  clearCamKeys(){ if(Object.keys(this.camTrack).length){ this.camTrack={}; this.renderKeys(); History.push('clear cam keys'); status('Camera keys cleared.'); } },
+  evaluateCam(f){
+    const keys = Object.keys(this.camTrack).map(Number).sort((a,b)=>a-b); if(!keys.length) return;
+    let prev=keys[0], next=keys[keys.length-1];
+    for(const k of keys){ if(k<=f) prev=k; if(k>=f){ next=k; break; } }
+    const a=this.camTrack[prev], b=this.camTrack[next]; if(!a||!b) return;
+    let t = prev===next?0:(f-prev)/(next-prev);
+    t = (EASE[a.ease] || EASE.linear)(t);
+    const lerp=(u,v)=>u+(v-u)*t;
+    App.camera.position.set(lerp(a.p[0],b.p[0]), lerp(a.p[1],b.p[1]), lerp(a.p[2],b.p[2]));
+    App.orbit.target.set(lerp(a.t[0],b.t[0]), lerp(a.t[1],b.t[1]), lerp(a.t[2],b.t[2]));
+    const fov = lerp(a.fov, b.fov);
+    if (Math.abs(fov - App.camera.fov) > 1e-4) { App.camera.fov = fov; App.camera.updateProjectionMatrix(); }
+  },
+  goto(f){ this.frame=clamp(parseInt(f)||0,0,this.maxFrame); $('playhead').style.left=(this.frame/this.maxFrame*100)+'%'; $('frame-val').value=this.frame; App.objects.forEach(o=>this.evaluate(o,this.frame)); this.evaluateCam(this.frame); Editor.syncUI(); Helpers.updateSelectionBox(); },
 
   _qa:new THREE.Quaternion(), _qb:new THREE.Quaternion(), _eu:new THREE.Euler(),
   keyQuat(k, out) {
@@ -2354,7 +2403,7 @@ const Turntable = {
 
 // ---- Playblast: record the live canvas to WebM via MediaRecorder while the timeline plays ----
 const Record = {
-  rec:null, chunks:[], active:false, acc:0,
+  rec:null, chunks:[], active:false, acc:0, aborting:false,
   supported(){ return ('MediaRecorder' in window) && !!App.renderer?.domElement?.captureStream; },
   start(){
     if (!this.supported()) { status('Recording is not supported in this browser.'); return false; }
@@ -2366,7 +2415,11 @@ const Record = {
     try { this.rec = new MediaRecorder(stream, { mimeType:mime, videoBitsPerSecond:16000000 }); }
     catch(err){ status('Recorder init failed: ' + err.message); return false; }
     this.rec.ondataavailable = e => { if (e.data.size) this.chunks.push(e.data); };
-    this.rec.onstop = () => { download(new Blob(this.chunks, { type:'video/webm' }), 'webmaya_playblast.webm'); status('Playblast saved (webm).'); };
+    this.rec.onstop = () => {
+      if (this.aborting) { this.chunks = []; status('Playblast discarded.'); return; }
+      download(new Blob(this.chunks, { type:'video/webm' }), 'webmaya_playblast.webm'); status('Playblast saved (webm).');
+    };
+    this.aborting = false;
     this.rec.start();
     return true;
   },
@@ -2380,13 +2433,13 @@ const Record = {
     status('Playblast recording — playing ' + (Anim.maxFrame + 1) + ' frames…');
   },
   finish(){ this.active = false; this.stop(); $('play-btn').textContent = '▶'; $('playblast-btn').classList.remove('primary'); },
-  cancel(){ this.active = false; this.stop(); $('play-btn').textContent = '▶'; $('playblast-btn').classList.remove('primary'); status('Playblast cancelled.'); }
+  cancel(){ this.active = false; this.aborting = true; this.stop(); $('play-btn').textContent = '▶'; $('playblast-btn').classList.remove('primary'); }
 };
 
 // ---- Command palette: fuzzy launcher for every action (Ctrl+K) ----
 const Palette = {
   commands:[], filtered:[], active:0, recent:[],
-  toggleCheck(id, fn) { const c = $(id); c.checked = !c.checked; fn?.(); History.push('toggle ' + id); return c.checked; },
+  toggleCheck(id, fn) { const c = $(id); c.checked = !c.checked; fn?.(); return c.checked; }, // history handled by caller
   build() {
     const C = (id, label, group, ico, run, hint) => ({ id, label, group, ico, run, hint });
     const prim = ['cube','sphere','plane','torus','cylinder','cone','ico','knot','capsule'];
@@ -2437,8 +2490,8 @@ const Palette = {
       C('frame', 'Frame Selected', 'View', '⛶', () => Editor.focusSelection(), 'F'),
       C('toggle-grid', 'Toggle Grid', 'View', '▦', () => this.toggleCheck('grid-toggle', () => Editor.toggleGrid())),
       C('toggle-axes', 'Toggle Axes', 'View', '✛', () => this.toggleCheck('axes-toggle', () => Editor.toggleAxes())),
-      C('toggle-bloom', 'Toggle Bloom', 'Render', '✨', () => this.toggleCheck('bloom-toggle', () => Env.updateBloom())),
-      C('toggle-shadows', 'Toggle Shadows', 'Render', '◐', () => this.toggleCheck('shadow-toggle', () => Env.updateShadows())),
+      C('toggle-bloom', 'Toggle Bloom', 'Render', '✨', () => { this.toggleCheck('bloom-toggle', () => Env.updateBloom()); History.push('bloom'); }),
+      C('toggle-shadows', 'Toggle Shadows', 'Render', '◐', () => { this.toggleCheck('shadow-toggle', () => Env.updateShadows()); History.push('shadows'); }),
 
       C('anim-play', 'Play / Pause Timeline', 'Animation', '▶', () => Anim.toggle(), 'Space'),
       C('anim-key', 'Record Keyframe', 'Animation', '◆', () => Anim.recordKey(), 'K'),
@@ -2467,6 +2520,8 @@ const Palette = {
       C('gizmo-space', 'Toggle Gizmo Space (local/world)', 'Object', '⊹', () => Editor.toggleSpace()),
       C('turntable', 'Toggle Turntable', 'View', '⟳', () => Turntable.set()),
       C('playblast', 'Playblast → WebM', 'File', '⏺', () => Record.playblast()),
+      C('cam-key', 'Record Camera Keyframe', 'Animation', '🎥', () => Anim.recordCamKey()),
+      C('cam-clear', 'Clear Camera Keyframes', 'Animation', '✕', () => Anim.clearCamKeys()),
     ];
   },
   score(cmd, q) {
