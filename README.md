@@ -6,6 +6,17 @@
 
 ---
 
+## What's new in v4 ("Flow")
+
+* **Command Palette** — press <kbd>Ctrl</kbd>+<kbd>K</kbd> to fuzzy-search and run any command (create, modes, modifiers, deformers, booleans, materials, views, render toggles, export). Keyboard-driven, with recent-command memory. This is the fastest way to drive the whole editor.
+* **Procedural deformers** — **Twist**, **Bend**, and **Taper** applied around the object's local bounding box on a chosen axis. They operate on welded topology so the mesh stays watertight, and refit the BVH afterward.
+* **Proportional (soft) vertex editing** — toggle it (<kbd>O</kbd> in vertex mode) and dragging a vertex pulls its neighbours along a smooth falloff, sculpting clean domes and ridges. Vertex edits now move the whole welded vertex group, so the mesh no longer tears.
+* **Console access** — the runtime is exposed as `window.WebMaya` (`WebMaya.App.scene`, `WebMaya.objects()`, etc.) for power users and scripting.
+
+Earlier releases already added BVH-accelerated sculpting (8 brushes + falloff curves + X-symmetry), CSG booleans (union / subtract / intersect), Loop subdivision, noise/array/shell modifiers, HDRI + bloom + shadows post-processing, OBJ/STL export, GLTF animation-clip export, and IndexedDB autosave.
+
+---
+
 ## Features
 
 ### Scene and viewport
@@ -192,14 +203,18 @@ To make the app fully offline-capable, download Three.js and update the import m
 
 ### General controls
 
-| Action                | Shortcut                     |
-| --------------------- | ---------------------------- |
-| Undo                  | Ctrl + Z                     |
-| Redo                  | Ctrl + Y or Ctrl + Shift + Z |
-| Delete selection      | Delete or Backspace          |
-| Frame selected object | F                            |
-| Play/pause timeline   | Space                        |
-| Record keyframe       | K                            |
+| Action                       | Shortcut                     |
+| ---------------------------- | ---------------------------- |
+| Command palette              | Ctrl + K                     |
+| Undo                         | Ctrl + Z                     |
+| Redo                         | Ctrl + Y or Ctrl + Shift + Z |
+| Duplicate                    | Ctrl + D                     |
+| Delete selection             | Delete or Backspace          |
+| Frame selected object        | F                            |
+| Play/pause timeline          | Space                        |
+| Record keyframe              | K                            |
+| Brush size down / up         | [ / ]                        |
+| Proportional edit (vertex)   | O                            |
 
 ### Transform controls
 
@@ -366,48 +381,58 @@ Animation data stored in `userData.anim` is preserved as custom user data, but i
 
 ### Modeling
 
-* Edge selection mode
-* Multi-face and multi-vertex selection
-* True polygon topology layer
-* Bevel tool
-* Loop cut tool
-* Bridge faces tool
-* Boolean operations
-* Proper modifier stack
+* [x] Boolean operations (CSG)
+* [x] Procedural deformers (twist / bend / taper)
+* [x] Proportional / soft-selection editing
+* [ ] Edge selection mode
+* [ ] Multi-face and multi-vertex selection
+* [ ] True polygon topology layer
+* [ ] Bevel tool
+* [ ] Loop cut tool
+* [ ] Bridge faces tool
+* [ ] Proper non-destructive modifier stack
 
 ### Sculpting
 
-* Brush falloff curves
-* Symmetry sculpting
-* Masking
-* Dynamic remeshing
-* GPU-accelerated sculpt deformation
+* [x] Brush falloff curves
+* [x] Symmetry sculpting (X)
+* [x] Clay / pinch / crease / grab brushes
+* [ ] Masking
+* [ ] Dynamic remeshing
+* [ ] GPU-accelerated sculpt deformation
 
 ### Animation
 
-* Standard GLTF animation export
-* Dope sheet
-* Graph editor
-* Easing curves
-* Object constraints
-* Camera animation
+* [x] Standard GLTF animation export
+* [x] Easing curves
+* [x] Draggable keyframes on the timeline
+* [ ] Dope sheet
+* [ ] Graph editor
+* [ ] Object constraints
+* [ ] Camera animation
 
 ### Materials and rendering
 
-* Environment maps
-* HDRI support
-* Material library
-* Node-based material editor
-* Post-processing effects
-* Shadow controls
+* [x] Environment maps
+* [x] HDRI support
+* [x] Post-processing effects (bloom)
+* [x] Shadow controls
+* [ ] Material library
+* [ ] Node-based material editor
+
+### Productivity
+
+* [x] Command palette (Ctrl+K)
+* [ ] Customisable keybindings
+* [ ] Multi-viewport / quad view
 
 ### Project architecture
 
-* Split the single HTML file into modules
-* Add TypeScript
-* Add Vite or another dev server/build setup
-* Add unit tests for geometry tools
-* Store large scenes with IndexedDB instead of `localStorage`
+* [x] Store large scenes with IndexedDB instead of `localStorage`
+* [ ] Split the single HTML file into modules
+* [ ] Add TypeScript
+* [ ] Add Vite or another dev server/build setup
+* [ ] Add unit tests for geometry tools
 
 ---
 
