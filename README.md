@@ -1,23 +1,22 @@
 # WebMaya Advanced Studio
 
-**WebMaya Advanced Studio** is a browser-based 3D modeling, sculpting, material, and animation workspace built with **Three.js**. It runs as a single HTML file and provides a compact Maya-inspired interface for creating primitives, editing meshes, sculpting geometry, keyframing animation, importing/exporting GLTF assets, and saving projects locally.
+**WebMaya Advanced Studio v6 ("Component Studio")** is a browser-based 3D modeling, sculpting, material, and animation workspace built with **Three.js**. It runs as a single HTML file and provides a compact Maya-inspired interface for creating primitives, editing meshes, sculpting geometry, keyframing animation, importing/exporting GLTF assets, and saving projects locally.
 
 > This project is intended as an experimental in-browser 3D editor and learning platform. It is not a replacement for professional DCC software, but it provides a strong foundation for extending modeling, animation, and procedural tools in the browser.
 
 ---
 
-## What's new in v5 ("Studio")
+## What's new in v6 ("Component Studio")
 
-* **Viewport shading modes** — flip the whole viewport between **Solid**, **Wireframe**, **Matcap**, **Normals**, and **X-ray** from the Render panel or with the <kbd>\\</kbd> key (or the command palette). Implemented with a scene-wide override material, so your real per-object PBR materials are never touched — switch back to Solid and everything is exactly as you left it.
-* **Sculpt masking** — pick the **Mask** brush and paint protected zones (shown as red points); masked areas resist *every* brush, including Grab and symmetry. **Invert** and **Clear** are one click away. The mask is stored as a geometry attribute, so it survives undo/redo and project save/load automatically.
-* **Playblast & turntable** — **⏺ Playblast** records the timeline straight to a `.webm` video via the browser's `MediaRecorder` (paced to your scene FPS). Toggle **Turntable** for a continuous camera orbit — perfect on its own for product spins, or combined with playblast for a hands-free 360° render.
-* **Camera animation** — keyframe the viewport camera (position, look-at target and FOV) on a dedicated gold timeline track with **🎥 Cam**. Scrubbing and playback fly the camera between keys, so playblasts capture real cinematic moves. Right-click a camera key to delete it.
-* **Brush hardness** — a Hardness slider tightens the sculpt brush tip from broad-and-soft to sharp-and-focused by reshaping the falloff curve in real time.
-* **Symmetrize** — bakes the chosen half across the deformer axis, mirrors it, and welds the seam into one watertight mesh (distinct from Mirror X, which spawns a separate object). Ideal for committing a symmetric base before sculpting.
-* **Gizmo space toggle** — switch the transform gizmo between **World** and **Local** orientation from the Transform panel (safely ignored mid-drag).
-* **Reliability pass** — fixed a sculpt lock-up on focus loss, several GPU-memory leaks (textures, materials and BVH trees on delete / reload / texture-swap), stale keyframe-easing bleeding between objects, a bend-deformer blow-up at tiny angles, and made grid/axes visibility and wire overlays persist through save and undo.
+* **Welded multi-selection** — select multiple faces or logical welded vertices while duplicated triangle corners continue to move as one component.
+* **Fast component selection** — press <kbd>B</kbd> and drag a marquee; the default visible mode uses a depth-tested component ID pass to select what is actually drawn, while **Through** includes hidden components without per-face raycast stalls. Click or drag to replace, use <kbd>Shift</kbd> to extend/toggle, and <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> to remove.
+* **Topology traversal** — **All**, **Grow**, **Shrink**, **Invert**, and **Connected** make it practical to build and refine larger selections.
+* **Shared-pivot editing** — selected face regions and vertex groups translate, rotate, or scale together with <kbd>W</kbd>, <kbd>E</kbd>, and <kbd>R</kbd>. Vertex proportional editing can extend the transform beyond the selected groups.
+* **Region-safe modeling** — Extrude removes the selected source faces, lifts disconnected face islands independently, creates caps, and builds UV-mapped walls only around each region boundary. Inset, subdivide, poke, flip, and delete also accept multi-face selections.
+* **Attribute-preserving rebuilds** — generated corners interpolate compatible per-corner attributes, so UVs, vertex colors, sculpt `aMask` data, and other custom attributes survive topology edits.
+* **Reliability and polish** — project restore is validated and staged before replacing the scene; sculpt strokes no longer fight orbit controls; material changes participate in history and emissive controls stay synchronized; nested GLTF transforms import correctly; and responsive tool/inspector drawers, ARIA state, keyboard focus restoration, and live status announcements improve smaller-screen and assistive use.
 
-Earlier releases already added a **command palette** (<kbd>Ctrl</kbd>+<kbd>K</kbd>), **procedural deformers** (twist / bend / taper), **proportional soft-selection** vertex editing, BVH-accelerated sculpting (8 brushes + falloff curves + X-symmetry), CSG booleans (union / subtract / intersect), Loop subdivision, noise/array/shell modifiers, HDRI + bloom + shadows post-processing, OBJ/STL export, GLTF animation-clip export, IndexedDB autosave, and a `window.WebMaya` console runtime for scripting.
+Earlier release — **v5 ("Studio")** — introduced viewport shading modes, sculpt masking and hardness, playblast and turntable capture, camera animation, watertight Symmetrize, world/local gizmo space, and a broad resource-lifecycle reliability pass. Earlier versions added the command palette, procedural deformers, proportional editing, BVH-accelerated sculpting, CSG booleans, Loop subdivision, noise/array/shell tools, HDRI and bloom, OBJ/STL export, GLTF animation-clip export, IndexedDB autosave, and the `window.WebMaya` scripting runtime.
 
 ---
 
@@ -37,6 +36,8 @@ Earlier releases already added a **command palette** (<kbd>Ctrl</kbd>+<kbd>K</kb
 * World / local transform gizmo space
 * Turntable auto-orbit
 * Playblast viewport recording to WebM video
+* Responsive tool and inspector drawers on narrow screens
+* Accessible command palette semantics, focus restoration, and live status updates
 
 ### Object creation
 
@@ -67,23 +68,26 @@ Meshes are converted into editable non-indexed triangle geometry so face and scu
 
 ### Face editing
 
-Face mode supports triangle-level mesh operations:
+Face mode supports topology-aware selection and triangle-level mesh operations:
 
-* Select individual faces
-* Extrude face
-* Inset face
-* Subdivide face
-* Poke face
-* Flip face
-* Delete face
+* Single- or multi-face selection
+* Visible or through marquee selection
+* Select all, grow, shrink, invert, or select connected faces
+* Shared-pivot translate, rotate, and scale
+* Manifold region extrusion with boundary-only side walls
+* Multi-face inset, subdivision, poke, flip, and delete
+* UV, color, sculpt-mask, and custom-attribute preservation across rebuilds
 
 ### Vertex editing
 
 Vertex mode includes:
 
-* Vertex selection
-* Transformable vertex handle
-* Next/previous vertex navigation
+* Single- or multi-selection of welded vertex groups
+* Visible or through marquee selection
+* Select all, grow, shrink, invert, or select connected vertices
+* Shared-pivot translate, rotate, and scale
+* Next/previous welded-vertex navigation
+* Proportional editing around a multi-vertex selection
 * Weld-close operation
 * Basic mesh relaxation
 
@@ -112,7 +116,9 @@ The material panel supports:
 * Roughness
 * Emissive intensity
 * Wireframe toggle
+* Opacity
 * Image texture loading
+* Undo/redo history for material controls, presets, and textures
 * Material presets:
 
   * Clay
@@ -155,7 +161,8 @@ Supported workflows:
 * Save project as `.webmaya`
 * Open `.webmaya` project files
 * Drag-and-drop import into the viewport
-* Local autosave using `localStorage`
+* Atomic, validated project restore
+* Local autosave using IndexedDB, with legacy `localStorage` migration support
 
 ---
 
@@ -163,10 +170,10 @@ Supported workflows:
 
 ### Option 1: Open directly
 
-Save the project as an HTML file, for example:
+Open the included HTML file:
 
 ```text
-webmaya-advanced.html
+index.html
 ```
 
 Then open it in a modern browser.
@@ -184,7 +191,7 @@ python -m http.server 8080
 Then open:
 
 ```text
-http://localhost:8080/webmaya-advanced.html
+http://localhost:8080/
 ```
 
 Using Node.js:
@@ -210,6 +217,14 @@ https://unpkg.com/three@0.160.0/
 
 To make the app fully offline-capable, download Three.js and update the import map to point to local files.
 
+For deployment packaging and the built-in static smoke tests, Node.js users can run:
+
+```bash
+npm test
+```
+
+This copies the portable editor and social card into the ignored `dist/` folder, emits a Cloudflare Worker entry point, and verifies the root route, asset delivery, and method handling. It does not change the direct-open workflow.
+
 ---
 
 ## Controls
@@ -229,14 +244,15 @@ To make the app fully offline-capable, download Three.js and update the import m
 | Record keyframe              | K                            |
 | Brush size down / up         | [ / ]                        |
 | Proportional edit (vertex)   | O                            |
+| Arm component box select     | B                            |
 
 ### Transform controls
 
 | Tool      | Shortcut |
 | --------- | -------- |
-| Translate | W        |
-| Rotate    | E        |
-| Scale     | R        |
+| Translate object/components | W |
+| Rotate object/components    | E |
+| Scale object/components     | R |
 
 ### Mode switching
 
@@ -246,6 +262,22 @@ To make the app fully offline-capable, download Three.js and update the import m
 | Face Mode   | F9       |
 | Vertex Mode | F10      |
 | Sculpt Mode | F11      |
+
+### Component selection
+
+These controls apply in Face and Vertex modes:
+
+| Action | Control |
+| ------ | ------- |
+| Replace selection | Click a component |
+| Extend/toggle selection | Shift + click |
+| Remove from selection | Ctrl/Cmd + click |
+| Arm marquee selection | B, then drag |
+| Add marquee results | Shift + drag |
+| Remove marquee results | Ctrl/Cmd + drag |
+| Select occluded components | Enable **Through**; Wireframe and X-ray also select through |
+| Refine selection | **All**, **Grow**, **Shrink**, **Invert**, or **Connected** |
+| Transform around shared pivot | W / E / R |
 
 ### Sculpting
 
@@ -264,7 +296,7 @@ To make the app fully offline-capable, download Three.js and update the import m
 The app is currently contained in one HTML file.
 
 ```text
-webmaya-advanced.html
+index.html
 ```
 
 Inside the file, the code is organized into several main systems:
@@ -288,9 +320,10 @@ Stores core Three.js runtime objects:
 Stores editor state:
 
 * Active mode
-* Current selection
-* Selected face index
-* Selected vertex index
+* Current object selection
+* Selected face set
+* Selected welded-vertex-group set
+* Marquee selection state
 * Undo stack
 * Redo stack
 
@@ -322,14 +355,18 @@ Main editor controller. Handles:
 
 Handles viewport helper visuals:
 
-* Face highlights
-* Vertex display
+* Batched multi-face highlights
+* Welded vertex display
 * Selection box
-* Vertex transform handle
+* Shared component-pivot handle
+
+### `Topo` and `Selection`
+
+Build and traverse the welded topology graph, manage face and vertex-group selection sets, perform visible/through marquee tests, and keep the shared component pivot synchronized.
 
 ### `MeshOps`
 
-Low-level mesh utilities for triangle extraction and geometry rebuilding.
+Low-level mesh utilities for triangle extraction, manifold region extrusion, attribute interpolation, bounds/normal refresh, and geometry rebuilding.
 
 ### `Tools`
 
@@ -353,11 +390,11 @@ WebMaya Advanced Studio uses two save mechanisms.
 
 ### Autosave
 
-The current scene is automatically saved to browser `localStorage` after major changes. When the page reloads, the last autosaved scene is restored automatically.
+The current scene is automatically saved to IndexedDB after major changes. When the page reloads, the last autosaved scene is restored automatically; legacy `localStorage` saves remain readable for migration.
 
 ### Project files
 
-Use **Save Project** to download a `.webmaya` file. This stores the current project as JSON and can be reopened later with **Open Project**.
+Use **Save Project** to download a `.webmaya` file. Opening a project validates and stages every object before replacing the current scene, so a malformed or oversized file fails atomically instead of leaving a half-restored workspace.
 
 ---
 
@@ -365,7 +402,7 @@ Use **Save Project** to download a `.webmaya` file. This stores the current proj
 
 ### Import
 
-The editor can import GLTF and GLB files. Imported meshes are cloned, converted into editable geometry, and added to the scene.
+The editor can import GLTF and GLB files. Imported meshes are cloned, their complete nested world transforms are baked exactly once into editable geometry, and GPU-instanced meshes are expanded into independent editable objects so save/undo remains lossless.
 
 ### Export
 
@@ -374,20 +411,19 @@ The editor can export scene objects as:
 * `.gltf`
 * `.glb`
 
-Animation data stored in `userData.anim` is preserved as custom user data, but it is not currently converted into standard GLTF animation clips.
+Object transform keys are exported as a standard `WebMayaTake` GLTF animation clip when a track contains at least two keys.
 
 ---
 
 ## Known Limitations
 
 * Face tools operate on triangle geometry, not full polygon/ngon topology.
-* Extrude, inset, poke, and subdivision are geometry rebuild operations and do not yet preserve advanced topology metadata.
-* Vertex editing currently moves individual triangle vertices; welded/shared vertex editing is limited.
+* Welded components are inferred from position. Deliberately coincident but disconnected vertices or UV seams may therefore be selected together.
+* Edge selection, bevel, loop cut, bridge, and persistent polygon/ngon metadata are not yet implemented.
 * Sculpting is CPU-based and may slow down on dense meshes.
 * Undo/redo is snapshot-based, which is simple but can become memory-heavy with large scenes.
-* Imported materials are simplified when converted for editing.
-* GLTF export does not yet generate standard animation clips from the custom timeline system.
-* No rigging, skinning, constraints, IK, UV editor, node materials, or procedural modifier stack yet.
+* Multi-material imported meshes are simplified to one editable material.
+* Skinned meshes are refused until baked; rigging, constraints, IK, a UV editor, node materials, and a procedural modifier stack are not yet implemented.
 
 ---
 
@@ -399,8 +435,13 @@ Animation data stored in `userData.anim` is preserved as custom user data, but i
 * [x] Procedural deformers (twist / bend / taper)
 * [x] Proportional / soft-selection editing
 * [x] Symmetrize (watertight mirror bake)
+* [x] Welded multi-face and multi-vertex selection
+* [x] Visible/through marquee selection
+* [x] Grow, shrink, invert, connected, and all selection
+* [x] Shared-pivot component transforms
+* [x] Manifold region extrusion
+* [x] Attribute-preserving geometry rebuilds
 * [ ] Edge selection mode
-* [ ] Multi-face and multi-vertex selection
 * [ ] True polygon topology layer
 * [ ] Bevel tool
 * [ ] Loop cut tool
@@ -435,6 +476,7 @@ Animation data stored in `userData.anim` is preserved as custom user data, but i
 * [x] Viewport shading modes (solid / wireframe / matcap / normals / x-ray)
 * [x] Turntable auto-orbit
 * [x] Playblast viewport recording (WebM)
+* [x] History-aware emissive and material editing
 * [ ] Material library
 * [ ] Node-based material editor
 
@@ -442,12 +484,15 @@ Animation data stored in `userData.anim` is preserved as custom user data, but i
 
 * [x] Command palette (Ctrl+K)
 * [x] World / local transform gizmo space
+* [x] Responsive tool/inspector drawers
+* [x] Command palette and status accessibility pass
 * [ ] Customisable keybindings
 * [ ] Multi-viewport / quad view
 
 ### Project architecture
 
 * [x] Store large scenes with IndexedDB instead of `localStorage`
+* [x] Atomic validated project restore
 * [ ] Split the single HTML file into modules
 * [ ] Add TypeScript
 * [ ] Add Vite or another dev server/build setup
@@ -510,6 +555,6 @@ Built with:
 
 ## Project Status
 
-**Status:** Prototype / experimental editor
+**Status:** v6 Component Studio / experimental alpha
 
-WebMaya Advanced Studio is functional as a compact browser-based modeling and animation sandbox. It is suitable for experimentation, learning, rapid mesh sk
+WebMaya Advanced Studio v6 is a functional compact modeling, sculpting, material, and animation sandbox. Component Studio adds a coherent welded-selection and topology-editing workflow while preserving the project's portable, single-file design. It remains experimental and is best suited to learning, prototyping, and small-to-medium browser-based scenes.
